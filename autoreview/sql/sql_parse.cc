@@ -11982,6 +11982,7 @@ int mysql_deinit_sql_result_plan(THD* thd)
     my_free(sql_plan_result->sql_statements);
     if (__DEBUG)
        printf("THD:%x == sql_plan_result->sql_statements：my_free %x\n",thd,sql_plan_result->sql_statements);
+    my_free(sql_plan_result);
     DBUG_RETURN(FALSE);
 }
 
