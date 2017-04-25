@@ -112,6 +112,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 #include "item_subselect.h"
 #include "sql_time.h"
 #include "curl/curl.h"
+#include "amqp/amqp_ssl_socket.h"
+#include "amqp/amqp_framing.h"
+
 using std::max;
 using std::min;
 
@@ -2447,7 +2450,13 @@ int thd_parse_options(
     }
 
     sprintf(errmsg, "Invalid source infomation.");
-    //global_source.password = global_source.user = NULL;
+    /* 
+    global_source.password = NULL;
+    global_source.user = NULL;
+    global_source.db = NULL;
+    global_source.host = NULL;
+    global_source.dalgroup  = NULL;
+    */
     ho_error = my_handle_options(&++i, &isql_option, my_isql_options, NULL, NULL, errmsg);
     isql_option--;
     if (ho_error)
@@ -2523,6 +2532,8 @@ int thd_parse_options(
     thd->thd_sinfo->backup = global_source.backup;
     if (global_source.db != NULL)
         strcpy(thd->thd_sinfo->db, global_source.db);
+    if (global_source.sqlid != NULL)
+        strcpy(thd->thd_sinfo->sqlid, global_source.sqlid);
     if (inception_get_type(thd) != INCEPTION_TYPE_EXECUTE)
         thd->thd_sinfo->backup = FALSE;
 
@@ -11294,7 +11305,7 @@ int mysql_curl_fluxdb(THD *thd)
     CURL *curl;
     CURLcode res;
     //FILE *fp;
-
+    
     char* sql;
     char* msg_body;
     int   ret = TRUE;
@@ -11302,12 +11313,17 @@ int mysql_curl_fluxdb(THD *thd)
     int   is_drc;
 
     msg_body = (char*)my_malloc(strlen(thd->query()) + 100, MY_ZEROFILL);
+    if (msg_body == NULL)
+    {
+        my_error(ER_OUTOFMEMORY, MYF(0));
+        return ER_NO;
+    }
 
     sql = thd->sql_plan_result->sql_statements;
     is_wild = thd->sql_plan_result->is_wild;
     is_drc  = thd->sql_plan_result->is_drc;
 
-    sprintf(msg_body, "dal.autoreview,dalgroup=\"%s\",ip=\"%s\",port=%d,db=\"%s\" wild=%d,drc_check_time=%d,sql=\"%s\"";,
+    sprintf(msg_body, "dal.autoreview,dalgroup=\"%s\",ip=\"%s\",port=%d,db=\"%s\",sqlid=\"%s\" wild=%d,drc_check_time=%d,sql=\"%s\"",
                             thd->thd_sinfo->dalgroup,
                             thd->thd_sinfo->host,
                             thd->thd_sinfo->port,
@@ -11315,26 +11331,120 @@ int mysql_curl_fluxdb(THD *thd)
                             is_wild,
                             is_drc,
                             sql);
+
     /*
     if ((fp = fopen(filename, "w")) == NULL)
          return false;
     */
+    
     curl = curl_easy_init();
     if (curl)
     {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, msg_body);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, msg_body); 
         //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(msg_body));
-        curl_easy_setopt(curl, CURLOPT_URL, "http://vpca-esm-influxdb-1.vm.elenet.me:8086/write?db=esm");
+        //curl_easy_setopt(curl, CURLOPT_URL, "http://vpca-esm-influxdb-1.vm.elenet.me:8086/write?db=esm");  
+        curl_easy_setopt(curl, CURLOPT_URL, influxdb_url);
         res = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
     }
     else
-        return FALSE;
+    {
+          my_free(msg_body);
+          return FALSE;
+     }
+     
+     my_free(msg_body);
     //fclose(fp);
     return TRUE;
 }
 
+int mysql_rabbitmq(THD *thd)
+{
+    char const *hostname;
+    int port, status;
+    int rate_limit;
+    int message_count;
+    amqp_socket_t *socket;
+    amqp_connection_state_t conn;
+    int sockfd;
+
+    char* sql;
+    char* message;
+    int   ret = TRUE;
+    int   is_wild;
+    int   is_drc;
+
+    message = (char*)my_malloc(strlen(thd->query()) + 100, MY_ZEROFILL);
+    if (message == NULL)
+    {
+        my_error(ER_OUTOFMEMORY, MYF(0));
+        return ER_NO;
+    }
+
+    sql = thd->sql_plan_result->sql_statements;
+    is_wild = thd->sql_plan_result->is_wild;
+    is_drc  = thd->sql_plan_result->is_drc;
+
+    amqp_bytes_t message_bytes;
+
+    sprintf(message, "{\"originSql\":\"%s\",\"dbName\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"dalGroup\":\"%s\",\"sqlid\":\"%s\",\"wild\":%d,\"drc_check_time\":%d}",
+                            sql,
+                            thd->thd_sinfo->db,
+                            thd->thd_sinfo->host,
+                            thd->thd_sinfo->port,
+                            thd->thd_sinfo->dalgroup,
+                            thd->thd_sinfo->sqlid,
+                            is_wild,
+                            is_drc);
+
+    message_bytes.len = sizeof(message);
+    message_bytes.bytes = message;
+
+    conn = amqp_new_connection();
+    if (conn)
+    {
+        ret = FALSE;
+        goto ERR;
+    }
+    sockfd = amqp_open_socket(hostname, port);
+    if (sockfd < 0)
+    {
+        ret = FALSE;
+        goto ERR;
+    }
+    amqp_set_sockfd(conn, sockfd);
+    amqp_login(conn, rabbitmq_vhost, 0, 131072, 0, AMQP_SASL_METHOD_PLAIN, rabbitmq_user, rabbitmq_password);
+    amqp_channel_open(conn, 1);
+    amqp_get_rpc_reply(conn);
+
+
+    sockfd = amqp_basic_publish(conn,
+                           1,
+                           amqp_cstring_bytes(rabbitmq_exchange),
+                           amqp_cstring_bytes(rabbitmq_queue),
+                           0,
+                           0,
+                           NULL,
+                           message_bytes);
+     if (sockfd < 0)
+     {
+        ret = FALSE;
+        goto ERR;
+     }
+
+ERR:
+    if (!conn)
+    {
+        amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS);
+        amqp_connection_close(conn, AMQP_REPLY_SUCCESS);
+        amqp_destroy_connection(conn);
+    }
+    my_free(message);
+    return TRUE;
+}
+
+/*
 int mysql_python_mq(THD *thd)
 {
     // initial Python
@@ -11409,7 +11519,7 @@ ERROR:
     Py_Finalize();
     return ret;
 }
-
+*/
 
 int mysql_get_slave_plan_judge(THD* thd)
 {
@@ -11442,6 +11552,11 @@ int mysql_get_slave_plan_judge(THD* thd)
 
         thd->have_begin = FALSE;
         thd->thd_sinfo->host[0]='\0';
+        thd->thd_sinfo->db[0]='\0';
+        thd->thd_sinfo->password[0]='\0';
+        thd->thd_sinfo->user[0]='\0';
+        thd->thd_sinfo->dalgroup[0]='\0';
+        thd->thd_sinfo->sqlid[0]='\0';
         thd->close_all_connections();
         DBUG_RETURN(FALSE);
 

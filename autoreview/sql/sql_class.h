@@ -254,6 +254,7 @@ struct source_info_struct
     char*       password;
     char*       user;
     char*       dalgroup;
+    char*       sqlid;
     uint        port;
     uint        check;//check or execute
     uint        execute;
@@ -273,6 +274,7 @@ struct source_info_space_struct
     char        password[MAX_PASSWORD_LENGTH + 1];
     char        user[USERNAME_CHAR_LENGTH + 1];
     char        dalgroup[USERNAME_CHAR_LENGTH + 1];
+    char        sqlid[USERNAME_CHAR_LENGTH + 1];
     uint        port;
     uint        check;//check or execute
     uint        force;//force to execute though exist error before

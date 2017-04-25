@@ -609,6 +609,15 @@ bool inception_osc_on=0;
 // bool inception_osc_drop_new_table=0;
 // bool inception_osc_drop_old_table=0;
 
+/*for autoreview*/
+char *influxdb_url = NULL;
+char *rabbitmq_user = NULL;
+char *rabbitmq_password = NULL;
+uint rabbitmq_port = 0;
+char *rabbitmq_queue = NULL;
+char *rabbitmq_exchange = NULL;
+char *rabbitmq_vhost = NULL;
+
 mysql_mutex_t        osc_mutex;
 osc_cache_t global_osc_cache;
 /**
@@ -5122,6 +5131,10 @@ mysql_mutex_t	isql_option_mutex;
 
 struct my_option my_isql_options[]=
 {
+  {"db", 0, "dbname.",
+    &global_source.db, &global_source.db, 0,
+    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0,    0, 0},
+
   {"host", 0, "remote server address.",	
     &global_source.host, &global_source.host, 0, 
     GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0,	0, 0},
@@ -5133,6 +5146,10 @@ struct my_option my_isql_options[]=
   {"user", 0, "login user.", 
     &global_source.user, &global_source.user, 0, 
     GET_STR_ALLOC,	REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  
+  {"dalgroup", 0, "dalgroup.",
+    &global_source.dalgroup, &global_source.dalgroup, 0,
+    GET_STR_ALLOC,      REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 
   {"port", 0, "mysql server's port.", 
     &global_source.port, &global_source.port, 0, 
