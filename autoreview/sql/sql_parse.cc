@@ -11323,14 +11323,20 @@ int mysql_curl_fluxdb(THD *thd)
     is_wild = thd->sql_plan_result->is_wild;
     is_drc  = thd->sql_plan_result->is_drc;
 
-    sprintf(msg_body, "dal.autoreview,dalgroup=\"%s\",ip=\"%s\",port=%d,db=\"%s\",sqlid=\"%s\" wild=%d,drc_check_time=%d,sql=\"%s\"",
+    mysql_mutex_lock(&osc_mutex);    
+
+    sprintf(msg_body, "dal.autoreview,dalgroup=\"%s\",ip=\"%s\",port=%d,db=\"%s\",sqlid=\"%s\",id=%d wild=%d,drc_check_time=%d,sql=\"%s\"",
                             thd->thd_sinfo->dalgroup,
                             thd->thd_sinfo->host,
                             thd->thd_sinfo->port,
                             thd->thd_sinfo->db,
+                            thd->thd_sinfo->sqlid,
+                            sql_id,
                             is_wild,
                             is_drc,
                             sql);
+
+    mysql_mutex_unlock(&osc_mutex);
 
     /*
     if ((fp = fopen(filename, "w")) == NULL)
@@ -11388,28 +11394,33 @@ int mysql_rabbitmq(THD *thd)
 
     amqp_bytes_t message_bytes;
 
-    sprintf(message, "{\"originSql\":\"%s\",\"dbName\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"dalGroup\":\"%s\",\"sqlid\":\"%s\",\"wild\":%d,\"drc_check_time\":%d}",
-                            sql,
+    mysql_mutex_lock(&osc_mutex);    
+
+    sprintf(message, "{\"dbName\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"dalGroup\":\"%s\",\"sqlid\":\"%s\",\"id\":%d,\"wild\":%d,\"drc_check_time\":%d}",
                             thd->thd_sinfo->db,
                             thd->thd_sinfo->host,
                             thd->thd_sinfo->port,
                             thd->thd_sinfo->dalgroup,
                             thd->thd_sinfo->sqlid,
+                            sql_id,
                             is_wild,
                             is_drc);
+    
+    mysql_mutex_unlock(&osc_mutex);
 
     message_bytes.len = sizeof(message);
     message_bytes.bytes = message;
 
     conn = amqp_new_connection();
-    if (conn)
+    if (!conn)
     {
         ret = FALSE;
         goto ERR;
     }
-    sockfd = amqp_open_socket(hostname, port);
+    sockfd = amqp_open_socket(rabbitmq_hostname, rabbitmq_port);
     if (sockfd < 0)
     {
+        sql_print_error("rabbitmq connect failed!\n");
         ret = FALSE;
         goto ERR;
     }
@@ -11434,7 +11445,7 @@ int mysql_rabbitmq(THD *thd)
      }
 
 ERR:
-    if (!conn)
+    if (conn)
     {
         amqp_channel_close(conn, 1, AMQP_REPLY_SUCCESS);
         amqp_connection_close(conn, AMQP_REPLY_SUCCESS);
@@ -11625,7 +11636,7 @@ int mysql_get_slave_plan_judge(THD* thd)
        printf("THD:%x == sql_plan_result->sql_statements：my_malloc %x\n",thd,sql_plan_result->sql_statements);
     strncpy(sql_plan_result->sql_statements, pos, (int)(pos_ex - pos) + 1);
     //sql include *
-    if (strstr(sql_plan_result->sql_statements, "*"))
+    if (strstr(sql_plan_result->sql_statements, "*") && !strstr(sql_plan_result->sql_statements, "(") && !strstr(sql_plan_result->sql_statements, ")"))
     {
         sql_plan_result->is_wild = 1;
         //mysql_python_mq(thd);
@@ -11640,6 +11651,7 @@ int mysql_get_slave_plan_judge(THD* thd)
     {
         //mysql_python_fluxdb(thd);
         mysql_curl_fluxdb(thd);
+        mysql_rabbitmq(thd);
     }
     
 
@@ -11735,6 +11747,14 @@ int mysql_get_slave_plan_judge(THD* thd)
     mysql_free_result(source_res);
 
 #endif
+
+    mysql_mutex_lock(&osc_mutex);
+    if (sql_id < 10000000000 )
+        sql_id = sql_id + 1;
+    else
+        sql_id = 0;
+        // printf("THD:%x == sql_id：%d\n",thd,sql_id);
+    mysql_mutex_unlock(&osc_mutex);
 
     my_free(set_format);
     if (__DEBUG)

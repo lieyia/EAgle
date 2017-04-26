@@ -204,6 +204,18 @@ extern bool inception_osc_on;
 // extern bool inception_osc_drop_new_table;
 // extern bool inception_osc_drop_old_table;
 
+/*for autoreview*/
+extern char *influxdb_url;
+extern char *rabbitmq_hostname;
+extern char *rabbitmq_user;
+extern char *rabbitmq_password;
+extern uint rabbitmq_port;
+extern char *rabbitmq_queue;
+extern char *rabbitmq_exchange;
+extern char *rabbitmq_vhost;
+
+extern ulonglong  sql_id;
+
 extern uint remote_backup_port;
 extern my_bool relay_log_recovery;
 extern uint sync_binlog_period, sync_relaylog_period, 

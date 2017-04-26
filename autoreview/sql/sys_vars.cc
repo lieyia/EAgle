@@ -1030,3 +1030,43 @@ static Sys_var_enum Sys_inception_osc_recursion_method(
     osc_recursion_method, DEFAULT(recursion_method_processlist), 
     NO_MUTEX_GUARD, NOT_IN_BINLOG);
 
+/*for autoreview*/
+static Sys_var_charptr Sys_influxdb_url(
+    "autoreview-influx-url", "the url of influxdb.",
+    READ_ONLY GLOBAL_VAR(influxdb_url), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_charptr Sys_rabbitmq_hostname(
+    "autoreview-rabbitmq-hostname", "the hostname of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_hostname), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_charptr Sys_rabbitmq_user(
+    "autoreview-rabbitmq-user", "the user of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_user), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_charptr Sys_rabbitmq_password(
+    "autoreview-rabbitmq-password", "the password of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_password), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_uint Sys_rabbitmq_port(
+    "autoreview-rabbitmq-port", "the port of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_port), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1));
+
+static Sys_var_charptr Sys_rabbitmq_queue(
+    "autoreview-rabbitmq-queue", "the queue of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_queue), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_charptr Sys_rabbitmq_exchange(
+    "autoreview-rabbitmq-exchange", "the exchange of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_exchange), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));
+
+static Sys_var_charptr Sys_rabbitmq_vhost(
+    "autoreview-rabbitmq-vhost", "the vhost of rabbitmq.",
+    READ_ONLY GLOBAL_VAR(rabbitmq_vhost), CMD_LINE(REQUIRED_ARG),
+    IN_FS_CHARSET, DEFAULT(""));

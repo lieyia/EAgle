@@ -612,11 +612,14 @@ bool inception_osc_on=0;
 /*for autoreview*/
 char *influxdb_url = NULL;
 char *rabbitmq_user = NULL;
+char *rabbitmq_hostname = NULL;
 char *rabbitmq_password = NULL;
 uint rabbitmq_port = 0;
 char *rabbitmq_queue = NULL;
 char *rabbitmq_exchange = NULL;
 char *rabbitmq_vhost = NULL;
+
+ulonglong  sql_id = 0;
 
 mysql_mutex_t        osc_mutex;
 osc_cache_t global_osc_cache;
@@ -5150,6 +5153,10 @@ struct my_option my_isql_options[]=
   {"dalgroup", 0, "dalgroup.",
     &global_source.dalgroup, &global_source.dalgroup, 0,
     GET_STR_ALLOC,      REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  
+  {"sqlid", 0, "sqlid.",
+     &global_source.sqlid, &global_source.sqlid, 0,
+     GET_STR_ALLOC,      REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 
   {"port", 0, "mysql server's port.", 
     &global_source.port, &global_source.port, 0, 
