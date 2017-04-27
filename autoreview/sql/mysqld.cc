@@ -619,7 +619,7 @@ char *rabbitmq_queue = NULL;
 char *rabbitmq_exchange = NULL;
 char *rabbitmq_vhost = NULL;
 
-ulonglong  sql_id = 0;
+//ulonglong  sql_id = 0;
 
 mysql_mutex_t        osc_mutex;
 osc_cache_t global_osc_cache;

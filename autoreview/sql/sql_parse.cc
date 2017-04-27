@@ -338,6 +338,18 @@ str_get_len(str_t* str)
     return strlen(str->str);
 }
 
+int mysql_hash_get_fold(char* s, int len)
+{
+    int i, result;
+    result = 0;
+    for (i =0;i < len; i++)
+    {
+        result += s[i];
+        if (s[i] > 0x60 && s[i] < 0x7B)
+            result -= 0x20;
+    }
+    return result;
+}
 
 /**
 This works because items are allocated with sql_alloc().
@@ -11323,7 +11335,7 @@ int mysql_curl_fluxdb(THD *thd)
     is_wild = thd->sql_plan_result->is_wild;
     is_drc  = thd->sql_plan_result->is_drc;
 
-    mysql_mutex_lock(&osc_mutex);    
+    //mysql_mutex_lock(&osc_mutex);    
 
     sprintf(msg_body, "dal.autoreview,dalgroup=\"%s\",ip=\"%s\",port=%d,db=\"%s\",sqlid=\"%s\",id=%d wild=%d,drc_check_time=%d,sql=\"%s\"",
                             thd->thd_sinfo->dalgroup,
@@ -11331,12 +11343,12 @@ int mysql_curl_fluxdb(THD *thd)
                             thd->thd_sinfo->port,
                             thd->thd_sinfo->db,
                             thd->thd_sinfo->sqlid,
-                            sql_id,
+                            thd->sqlfold,
                             is_wild,
                             is_drc,
                             sql);
 
-    mysql_mutex_unlock(&osc_mutex);
+    //mysql_mutex_unlock(&osc_mutex);
 
     /*
     if ((fp = fopen(filename, "w")) == NULL)
@@ -11375,7 +11387,7 @@ int mysql_rabbitmq(THD *thd)
     amqp_connection_state_t conn;
     int sockfd;
 
-    char* sql;
+    //char* sql;
     char* message;
     int   ret = TRUE;
     int   is_wild;
@@ -11388,13 +11400,13 @@ int mysql_rabbitmq(THD *thd)
         return ER_NO;
     }
 
-    sql = thd->sql_plan_result->sql_statements;
+    //sql = thd->sql_plan_result->sql_statements;
     is_wild = thd->sql_plan_result->is_wild;
     is_drc  = thd->sql_plan_result->is_drc;
 
     amqp_bytes_t message_bytes;
 
-    mysql_mutex_lock(&osc_mutex);    
+    //mysql_mutex_lock(&osc_mutex);    
 
     sprintf(message, "{\"dbName\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"dalGroup\":\"%s\",\"sqlid\":\"%s\",\"id\":%d,\"wild\":%d,\"drc_check_time\":%d}",
                             thd->thd_sinfo->db,
@@ -11402,11 +11414,11 @@ int mysql_rabbitmq(THD *thd)
                             thd->thd_sinfo->port,
                             thd->thd_sinfo->dalgroup,
                             thd->thd_sinfo->sqlid,
-                            sql_id,
+                            thd->sqlfold,
                             is_wild,
                             is_drc);
     
-    mysql_mutex_unlock(&osc_mutex);
+    //mysql_mutex_unlock(&osc_mutex);
 
     message_bytes.len = sizeof(message);
     message_bytes.bytes = message;
@@ -11544,6 +11556,7 @@ int mysql_get_slave_plan_judge(THD* thd)
     char* pos;
     char* pos_ex;
     int   length;
+    int   sqlfold;
     sql_plan_result_t* sql_plan_result;
     sql_plan_result_node_t* sql_plan_result_node;
 
@@ -11562,6 +11575,7 @@ int mysql_get_slave_plan_judge(THD* thd)
         mysql_deinit_sql_cache(thd);
 
         thd->have_begin = FALSE;
+        thd->sqlfold = 0;
         thd->thd_sinfo->host[0]='\0';
         thd->thd_sinfo->db[0]='\0';
         thd->thd_sinfo->password[0]='\0';
@@ -11647,6 +11661,9 @@ int mysql_get_slave_plan_judge(THD* thd)
         sql_plan_result->is_drc = 1;
     }
 
+    sqlfold = mysql_hash_get_fold(sql_plan_result->sql_statements, (int)(pos_ex - pos) >= 1000? 1000:(int)(pos_ex - pos));
+    thd->sqlfold = sqlfold;
+    printf("hashlength:%d == thd->sqlfold:%d\n",(int)(pos_ex - pos) >= 1000? 1000:(int)(pos_ex - pos),thd->sqlfold);
     if (sql_plan_result->is_wild == 1 || sql_plan_result->is_drc == 1)
     {
         //mysql_python_fluxdb(thd);
@@ -11747,7 +11764,7 @@ int mysql_get_slave_plan_judge(THD* thd)
     mysql_free_result(source_res);
 
 #endif
-
+    /*
     mysql_mutex_lock(&osc_mutex);
     if (sql_id < 10000000000 )
         sql_id = sql_id + 1;
@@ -11755,7 +11772,7 @@ int mysql_get_slave_plan_judge(THD* thd)
         sql_id = 0;
         // printf("THD:%x == sql_id：%d\n",thd,sql_id);
     mysql_mutex_unlock(&osc_mutex);
-
+    */
     my_free(set_format);
     if (__DEBUG)
             printf("THD:%x == set_format：my_free %x\n",thd,set_format);

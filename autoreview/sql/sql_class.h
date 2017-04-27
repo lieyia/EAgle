@@ -3293,6 +3293,7 @@ public:
   query_print_cache_t* query_print_cache;
   int  use_osc;//用来记录当前语句是不是可以使用osc来改表，临时记录而已
   sql_plan_result_t* sql_plan_result;
+  int sqlfold;
 
   int backup_flag;
   tablecache_t tablecache;
