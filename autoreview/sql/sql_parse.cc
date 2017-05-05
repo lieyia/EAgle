@@ -11323,7 +11323,7 @@ int mysql_curl_fluxdb(THD *thd)
     int   ret = TRUE;
     int   is_wild;
     int   is_drc;
-
+    printf("fluxdb do start!\n");
     msg_body = (char*)my_malloc(strlen(thd->query()) + 100, MY_ZEROFILL);
     if (msg_body == NULL)
     {
@@ -11371,7 +11371,7 @@ int mysql_curl_fluxdb(THD *thd)
           my_free(msg_body);
           return FALSE;
      }
-     
+     printf("fluxdb do end!\n");
      my_free(msg_body);
     //fclose(fp);
     return TRUE;
@@ -11407,7 +11407,7 @@ int mysql_rabbitmq(THD *thd)
     amqp_bytes_t message_bytes;
 
     //mysql_mutex_lock(&osc_mutex);    
-
+    printf("rabbit do start!\n");
     sprintf(message, "{\"dbName\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"dalGroup\":\"%s\",\"sqlid\":\"%s\",\"id\":%d,\"wild\":%d,\"drc_check_time\":%d}",
                             thd->thd_sinfo->db,
                             thd->thd_sinfo->host,
@@ -11463,6 +11463,7 @@ ERR:
         amqp_connection_close(conn, AMQP_REPLY_SUCCESS);
         amqp_destroy_connection(conn);
     }
+    printf("rabbit do end!\n");
     my_free(message);
     return TRUE;
 }
@@ -11612,6 +11613,7 @@ int mysql_get_slave_plan_judge(THD* thd)
 
     length = strlen(str);
 
+    printf("judge start!\n");
     set_format = (char*)my_malloc(length + 1, MY_ZEROFILL);
     if (__DEBUG)
         printf("\nTHD:%x == set_format:my_malloc %x\n",thd,set_format);
@@ -11663,7 +11665,7 @@ int mysql_get_slave_plan_judge(THD* thd)
 
     sqlfold = mysql_hash_get_fold(sql_plan_result->sql_statements, (int)(pos_ex - pos) >= 1000? 1000:(int)(pos_ex - pos));
     thd->sqlfold = sqlfold;
-    printf("hashlength:%d == thd->sqlfold:%d\n",(int)(pos_ex - pos) >= 1000? 1000:(int)(pos_ex - pos),thd->sqlfold);
+    //printf("hashlength:%d == thd->sqlfold:%d\n",(int)(pos_ex - pos) >= 1000? 1000:(int)(pos_ex - pos),thd->sqlfold);
     if (sql_plan_result->is_wild == 1 || sql_plan_result->is_drc == 1)
     {
         //mysql_python_fluxdb(thd);
@@ -11773,6 +11775,7 @@ int mysql_get_slave_plan_judge(THD* thd)
         // printf("THD:%x == sql_id：%d\n",thd,sql_id);
     mysql_mutex_unlock(&osc_mutex);
     */
+    printf("judge end!\n");
     my_free(set_format);
     if (__DEBUG)
             printf("THD:%x == set_format：my_free %x\n",thd,set_format);
